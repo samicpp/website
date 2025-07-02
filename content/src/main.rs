@@ -1,14 +1,102 @@
+mod mime_map;
+mod handlers;
 
+use mime_map::mime_map;
 use rust_http::{
-    http1::handler::Http1Socket, traits::HttpSocket
+    http1::handler::Http1Socket, listener, traits::HttpSocket
 };
 
+use std::{
+    env,
+    path::Path,
+    sync::Arc,
+};
+// use futures::future::BoxFuture;
+// use futures::FutureExt;
+
+
 #[tokio::main]
-async fn main() {
+async fn main()->std::io::Result<()> {
     println!("listenening http://0.0.0.0:4096/");
-    rust_http::listener::http_listener("0.0.0.0:4096",listener).await.unwrap();
+    // rust_http::listener::http_listener("0.0.0.0:4096",listener).await.unwrap();
+    // let dotenv_successfull = dotenv().ok();
+    let dotenvy_successfull = dotenvy::from_path(Path::new(".env"));
+
+    let mut serve_dir: String = env::var("serve_dir").unwrap_or("./public".to_string());
+    let mut port: u16 = env::var("port").unwrap_or("3000".to_string()).parse().unwrap_or(3000);
+    let mut host = { 
+        // let mut host: [u8; 4] = [0, 0, 0, 0];
+        // let host_str = env::var("host").unwrap_or("0.0.0.0".to_string());
+        // let parts: Vec<&str> = host_str.split('.').collect();
+        // if parts.len() == 4 {
+        //     for (i, part) in parts.iter().enumerate() {
+        //         host[i] = part.parse::<u8>().unwrap_or(0);
+        //     }
+        // }
+
+        // host
+        env::var("host").unwrap_or("0.0.0.0".to_string())
+    };
+    let args: Vec<String> = env::args().collect();
+
+    // Check arguments that the user provided
+    if args.len() > 1 {
+        serve_dir = args[1].clone();
+    } if args.len() > 2 {
+        port = args[2].parse::<u16>().unwrap_or(3000);
+    } if args.len() > 3 {
+        let host_str = args[3].clone();
+        host=host_str;
+        // let parts: Vec<&str> = host_str.split('.').collect();
+        // if parts.len() == 4 {
+        //     for (i, part) in parts.iter().enumerate() {
+        //         host[i] = part.parse::<u8>().unwrap_or(0);
+        //     }
+        // } else {
+        //     eprintln!("Invalid host address. Using default");
+        // }
+    }
+
+    // dbg!(dotenv_successfull);
+    dbg!(dotenvy_successfull);
+    // dbg!(env::var("serve_dir"));
+
+
+    println!(
+        "Parameters of the server are\n\x1b[32mport = {}\n\x1b[33mhost = {:?}\n\x1b[34mdirectory = {}\x1b[0m",
+        port, host, serve_dir
+    );
+
+    let serve_dir=Arc::new(serve_dir);
+
+    let listener = {
+        let serve_dir = Arc::clone(&serve_dir);
+        move |conn: Http1Socket| {
+            let serve_dir = Arc::clone(&serve_dir);
+            async move {
+                let _ = handlers::handler(&serve_dir, conn).await;
+            }
+        }
+    };
+
+    let full_addr=host+":"+&port.to_string();
+
+    println!("http://{}/",&full_addr);
+    listener::http_listener(&full_addr, listener).await.unwrap();
+    
+    // loop{}
+
+    Ok(())
 }
 
-async fn listener(mut conn: Http1Socket){
-    conn.close(b"after a long time").await.unwrap();
-}
+
+
+// async fn test_listener(mut conn: Http1Socket){
+//     if let Err(err)=conn.update_client().await{
+//         conn.status=500;
+//         conn.status_msg="Internal Server Error".to_owned();
+//         conn.set_header("Content-Type", "text/plain");
+//         let _=conn.close(format!("Internal Server Error occoured:\n{:?}",err).as_bytes()).await;
+//     };
+//     conn.close(b"after a long time").await.unwrap();
+// }

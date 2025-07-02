@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 rust_http = { path = "../rust_http" }
 tokio = { version = "1", features = ["full"] }
+regex = "1.11.1"
+dotenvy = "*"
