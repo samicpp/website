@@ -1,0 +1,8 @@
+[package]
+name = "content"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rust_http = { path = "../rust_http" }
+tokio = { version = "1", features = ["full"] }
