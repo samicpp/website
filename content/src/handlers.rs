@@ -2,11 +2,10 @@ use crate::Http1Socket;
 
 // use std::convert::Infallible;
 use std::{
-    io::Read,
-    fs::{self, File},
-    path::{Component, Path, PathBuf},
+    collections::HashMap, fs::{self, File}, io::Read, path::{Component, Path, PathBuf}
 };
 
+use crate::mime_map::mime_map;
 
 // use regex::Regex;
 use rust_http::traits::HttpSocket;
@@ -139,8 +138,11 @@ pub async fn error_handler(code: u16, err: std::io::Error, mut req: Http1Socket)
 }
 
 pub async fn file_handler(path: &str, mut res: Http1Socket) -> std::io::Result<()> {
+    let mime=mime_map();
     let mut file = File::open(path).unwrap();
     let mut buffer = vec![];
+    let parts: Vec<&str>=path.split(".").collect::<Vec<&str>>();
+    let last=parts[parts.len()-1];
     file.read_to_end(&mut buffer).unwrap();
     if path.ends_with(".html"){
         res.set_header("Content-Type", "text/html");
@@ -156,6 +158,8 @@ pub async fn file_handler(path: &str, mut res: Http1Socket) -> std::io::Result<(
         res.set_header("Content-Type", "image/jpeg");
     } else if path.ends_with(".gif") {
         res.set_header("Content-Type", "image/gif");
+    } else if let Some(ct)=mime.get(last) {
+        res.set_header("Content-Type", ct);
     } else {
         res.set_header("Content-Type", "application/octet-stream");
     };

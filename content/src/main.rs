@@ -1,9 +1,8 @@
 mod mime_map;
 mod handlers;
 
-use mime_map::mime_map;
 use rust_http::{
-    http1::handler::Http1Socket, listener, traits::HttpSocket
+    http1::handler::Http1Socket, listener, /*traits::HttpSocket*/
 };
 
 use std::{
@@ -20,7 +19,7 @@ async fn main()->std::io::Result<()> {
     println!("listenening http://0.0.0.0:4096/");
     // rust_http::listener::http_listener("0.0.0.0:4096",listener).await.unwrap();
     // let dotenv_successfull = dotenv().ok();
-    let dotenvy_successfull = dotenvy::from_path(Path::new(".env"));
+    let _dotenvy_successfull = dotenvy::from_path(Path::new(".env"));
 
     let mut serve_dir: String = env::var("serve_dir").unwrap_or("./public".to_string());
     let mut port: u16 = env::var("port").unwrap_or("3000".to_string()).parse().unwrap_or(3000);
@@ -58,7 +57,7 @@ async fn main()->std::io::Result<()> {
     }
 
     // dbg!(dotenv_successfull);
-    dbg!(dotenvy_successfull);
+    // dbg!(dotenvy_successfull);
     // dbg!(env::var("serve_dir"));
 
 
