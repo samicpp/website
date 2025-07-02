@@ -2,7 +2,7 @@ use crate::Http1Socket;
 
 // use std::convert::Infallible;
 use std::{
-    collections::HashMap, fs::{self, File}, io::Read, path::{Component, Path, PathBuf}
+    fs::{self, File}, io::Read, path::{Component, Path, PathBuf}
 };
 
 use crate::mime_map::mime_map;
