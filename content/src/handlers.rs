@@ -1,17 +1,19 @@
-use crate::Http1Socket;
+use crate::{structs::SharedData, Http1Socket};
 
 // use std::convert::Infallible;
 use std::{
     fs::{self, File}, io::Read, path::{Component, Path, PathBuf}
 };
 
-use crate::mime_map::mime_map;
+// use crate::mime_map::mime_map;
 
 // use regex::Regex;
 use rust_http::traits::HttpSocket;
 
-pub async fn handler(serve_dir: &str, mut req: Http1Socket) -> std::io::Result<()> {
+pub async fn handler(shared: &SharedData, mut req: Http1Socket) -> std::io::Result<()> {
     println!("Serving connection");
+
+    let serve_dir=&shared.serve_dir;
 
     if let Err(err)=req.update_client().await{
         eprintln!("error at Http1Socket::update_client() \n{:?}",err);
@@ -58,13 +60,13 @@ pub async fn handler(serve_dir: &str, mut req: Http1Socket) -> std::io::Result<(
     match info_res{
         Ok(info) => {
             if info.is_file() {
-                file_handler(&full_path,req).await
+                file_handler(shared, &full_path,req).await
                 // let mut file = File::open(&full_path).unwrap();
                 // let mut buffer = vec![0; info.len() as usize];
                 // file.read_exact(&mut buffer).unwrap();
                 // Ok(Response::new(Full::new(Bytes::from(buffer))))
             } else if info.is_dir(){
-                dir_handler(req, &full_path).await
+                dir_handler(shared, req, &full_path).await
                 // let dir: fs::ReadDir = fs::read_dir(&full_path).unwrap();
                 // let mut file: String = "".to_string();
                 //
@@ -83,14 +85,14 @@ pub async fn handler(serve_dir: &str, mut req: Http1Socket) -> std::io::Result<(
                 //     file_handler(&file).await
                 // }
             } else {
-                error_handler(409, std::io::Error::new(std::io::ErrorKind::Unsupported, "File is unusable"), req).await
+                error_handler(shared, 409, std::io::Error::new(std::io::ErrorKind::Unsupported, "File is unusable"), req).await
             }
         },
         Err(err) => {
             if err.kind() == std::io::ErrorKind::NotFound {
-                error_handler(404, err, req).await
+                error_handler(shared,404, err, req).await
             } else {
-                error_handler(500, err, req).await
+                error_handler(shared,500, err, req).await
             }
         },
     }
@@ -98,7 +100,7 @@ pub async fn handler(serve_dir: &str, mut req: Http1Socket) -> std::io::Result<(
     // Ok(Response::new(Full::new(Bytes::from("Hello, World!"))))
 }
 
-pub async fn error_handler(code: u16, err: std::io::Error, mut req: Http1Socket) -> std::io::Result<()>{
+pub async fn error_handler(_shared: &SharedData,code: u16, err: std::io::Error, mut req: Http1Socket) -> std::io::Result<()>{
     eprintln!("Error of status {} occoured\n\x1b[31m{}\x1b[0m",code,err);
     match code {
         404 => {
@@ -137,8 +139,8 @@ pub async fn error_handler(code: u16, err: std::io::Error, mut req: Http1Socket)
     }
 }
 
-pub async fn file_handler(path: &str, mut res: Http1Socket) -> std::io::Result<()> {
-    let mime=mime_map();
+pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket) -> std::io::Result<()> {
+    let mime=&shared.mime;
     let mut file = File::open(path).unwrap();
     let mut buffer = vec![];
     let parts: Vec<&str>=path.split(".").collect::<Vec<&str>>();
@@ -167,7 +169,7 @@ pub async fn file_handler(path: &str, mut res: Http1Socket) -> std::io::Result<(
     Ok(())
 }
 
-pub async fn dir_handler(res: Http1Socket,path: &str) -> std::io::Result<()> {
+pub async fn dir_handler(shared: &SharedData, res: Http1Socket,path: &str) -> std::io::Result<()> {
     let dir: fs::ReadDir = fs::read_dir(&path).unwrap();
     let mut file: String = "".to_string();
 
@@ -195,9 +197,9 @@ pub async fn dir_handler(res: Http1Socket,path: &str) -> std::io::Result<()> {
     println!("File found {}", file);
 
     if fs::metadata(&file).unwrap().is_file(){
-        file_handler(&file,res).await
+        file_handler(shared,&file,res).await
     } else {
-        error_handler(409, std::io::Error::new(std::io::ErrorKind::IsADirectory,"Cannot find index file in directory"), res).await
+        error_handler(shared,409, std::io::Error::new(std::io::ErrorKind::IsADirectory,"Cannot find index file in directory"), res).await
     }
 }
 

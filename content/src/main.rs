@@ -1,5 +1,6 @@
 mod mime_map;
 mod handlers;
+mod structs;
 
 use rust_http::{
     http1::handler::Http1Socket, listener, /*traits::HttpSocket*/
@@ -10,6 +11,8 @@ use std::{
     path::Path,
     sync::Arc,
 };
+
+use crate::{mime_map::mime_map, structs::SharedData};
 // use futures::future::BoxFuture;
 // use futures::FutureExt;
 
@@ -66,14 +69,17 @@ async fn main()->std::io::Result<()> {
         port, host, serve_dir
     );
 
-    let serve_dir=Arc::new(serve_dir);
+    // let serve_dir=Arc::new(serve_dir);
+    let shared=Arc::new(SharedData{ mime: mime_map(), serve_dir: serve_dir, });
 
     let listener = {
-        let serve_dir = Arc::clone(&serve_dir);
+        // let serve_dir = Arc::clone(&serve_dir);
+        let shared=Arc::clone(&shared);
         move |conn: Http1Socket| {
-            let serve_dir = Arc::clone(&serve_dir);
+            // let serve_dir = Arc::clone(&serve_dir);
+            let shared=Arc::clone(&shared);
             async move {
-                let _ = handlers::handler(&serve_dir, conn).await;
+                let _ = handlers::handler(&shared, conn).await;
             }
         }
     };
