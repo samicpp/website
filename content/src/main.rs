@@ -1,6 +1,8 @@
 mod mime_map;
 mod handlers;
 mod structs;
+mod javascript;
+mod lua;
 
 use rust_http::{
     http1::handler::Http1Socket, listener, /*traits::HttpSocket*/
@@ -9,7 +11,7 @@ use rust_http::{
 use std::{
     env,
     path::Path,
-    sync::Arc,
+    sync::Arc, time::{Instant},
 };
 
 use crate::{mime_map::mime_map, structs::SharedData};
@@ -69,8 +71,14 @@ async fn main()->std::io::Result<()> {
         port, host, serve_dir
     );
 
+    let deno_snapshot=javascript::create_snapshot();
+
     // let serve_dir=Arc::new(serve_dir);
-    let shared=Arc::new(SharedData{ mime: mime_map(), serve_dir: serve_dir, });
+    let shared=Arc::new(SharedData{
+        mime: mime_map(), 
+        serve_dir, 
+        deno_snapshot,
+    });
 
     let listener = {
         // let serve_dir = Arc::clone(&serve_dir);
@@ -79,7 +87,13 @@ async fn main()->std::io::Result<()> {
             // let serve_dir = Arc::clone(&serve_dir);
             let shared=Arc::clone(&shared);
             async move {
-                let _ = handlers::handler(&shared, conn).await;
+                let now=Instant::now();
+                let res = handlers::handler(&shared, conn).await;
+                println!("\x1b[36mhandler took {}ms\x1b[0m",now.elapsed().as_nanos() as f64 /1000000.0);
+                match res {
+                    Ok(())=>println!("\x1b[32mhandler didnt error\x1b[0m"),
+                    Err(err)=>eprintln!("\x1b[31mhandler errored\n{:?}\x1b[0m",err),
+                };
             }
         }
     };

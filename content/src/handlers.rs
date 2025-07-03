@@ -1,4 +1,4 @@
-use crate::{structs::SharedData, Http1Socket};
+use crate::{structs::SharedData, Http1Socket, lua};
 
 // use std::convert::Infallible;
 use std::{
@@ -145,8 +145,12 @@ pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket)
     let mut buffer = vec![];
     let parts: Vec<&str>=path.split(".").collect::<Vec<&str>>();
     let last=parts[parts.len()-1];
+    let mut is_script="";
     file.read_to_end(&mut buffer).unwrap();
-    if path.ends_with(".html"){
+    if path.ends_with(".lua"){
+        is_script="simple.lua";
+        res.set_header("Content-Type", "text/html");
+    } else if path.ends_with(".html"){
         res.set_header("Content-Type", "text/html");
     } else if path.ends_with(".css") {
         res.set_header("Content-Type", "text/css");
@@ -165,7 +169,17 @@ pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket)
     } else {
         res.set_header("Content-Type", "application/octet-stream");
     };
-    res.close(&buffer).await?;
+
+    if is_script=="simple.lua"{
+        let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
+        let resu=match lua::run_simple(script).await{
+            Ok(o)=>{o},
+            Err(o)=>{o.to_string()},
+        };
+        res.close(resu.as_bytes()).await?;
+    } else {
+        res.close(&buffer).await?;
+    }
     Ok(())
 }
 
