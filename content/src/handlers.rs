@@ -1,4 +1,4 @@
-use crate::{structs::SharedData, Http1Socket, lua};
+use crate::{javascript, lua, structs::SharedData, Http1Socket};
 
 // use std::convert::Infallible;
 use std::{
@@ -150,6 +150,9 @@ pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket)
     if path.ends_with(".lua"){
         is_script="simple.lua";
         res.set_header("Content-Type", "text/html");
+    } else if path.ends_with(".deno.js"){
+        is_script="simple.deno";
+        res.set_header("Content-Type", "text/html");
     } else if path.ends_with(".html"){
         res.set_header("Content-Type", "text/html");
     } else if path.ends_with(".css") {
@@ -173,6 +176,13 @@ pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket)
     if is_script=="simple.lua"{
         let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
         let resu=match lua::run_simple(script).await{
+            Ok(o)=>{o},
+            Err(o)=>{o.to_string()},
+        };
+        res.close(resu.as_bytes()).await?;
+    } else if is_script=="simple.deno"{
+        let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
+        let resu=match javascript::run_simple(script).await{
             Ok(o)=>{o},
             Err(o)=>{o.to_string()},
         };
