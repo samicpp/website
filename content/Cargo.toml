@@ -17,3 +17,5 @@ deno_error = "0.6.1"
 deno_ops = "0.228.0"
 anyhow = "1.0.98"
 # v8 = { version = "137.1.0", default-features = false }
+
+# ctrlc = "3.4.7"

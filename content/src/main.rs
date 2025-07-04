@@ -21,7 +21,8 @@ use crate::{mime_map::mime_map, structs::SharedData};
 
 #[tokio::main]
 async fn main()->std::io::Result<()> {
-    println!("listenening http://0.0.0.0:4096/");
+    let start=Instant::now();
+    // println!("listenening http://0.0.0.0:4096/");
     // rust_http::listener::http_listener("0.0.0.0:4096",listener).await.unwrap();
     // let dotenv_successfull = dotenv().ok();
     let _dotenvy_successfull = dotenvy::from_path(Path::new(".env"));
@@ -71,7 +72,7 @@ async fn main()->std::io::Result<()> {
         port, host, serve_dir
     );
 
-    let deno_snapshot=javascript::create_snapshot();
+    let deno_snapshot=javascript::create_snapshot().expect("couldnt create snapshot");
 
     // let serve_dir=Arc::new(serve_dir);
     let shared=Arc::new(SharedData{
@@ -100,10 +101,17 @@ async fn main()->std::io::Result<()> {
 
     let full_addr=host+":"+&port.to_string();
 
+    // ctrlc::set_handler(move||{
+    //     println!("SIG_INT received\nprocess exit after {}s",&start.elapsed().as_millis()/1000);
+    //     std::process::exit(0);
+    // }).expect("couldnt set ctrl+c handler");
+
     println!("http://{}/",&full_addr);
     listener::http_listener(&full_addr, listener).await.unwrap();
     
     // loop{}
+
+    println!("process exit after {}s",&start.elapsed().as_millis()/1000);
 
     Ok(())
 }

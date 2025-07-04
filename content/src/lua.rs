@@ -1,4 +1,4 @@
-use mlua::{Lua, Result};
+use mlua::{Lua, /*Result*/};
 use tokio::task;
 
 pub async fn run_simple(lua_code: &str) -> std::io::Result<String> {
@@ -11,7 +11,7 @@ pub async fn run_simple(lua_code: &str) -> std::io::Result<String> {
         // Run the Lua code and expect a String return value
         match lua.load(&code).eval::<String>() {
             Ok(e)=>Ok(e),
-            Err(e)=>Err(std::io::Error::new(std::io::ErrorKind::Other,"lua error")),
+            Err(e)=>Err(std::io::Error::new(std::io::ErrorKind::Other,e.to_string())),
         }
     }).await;
 
