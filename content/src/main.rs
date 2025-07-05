@@ -72,7 +72,7 @@ async fn main()->std::io::Result<()> {
         port, host, serve_dir
     );
 
-    let deno_snapshot=javascript::create_snapshot().expect("couldnt create snapshot");
+    let deno_snapshot=Arc::new(javascript::create_snapshot().expect("couldnt create snapshot"));
 
     // let serve_dir=Arc::new(serve_dir);
     let shared=Arc::new(SharedData{

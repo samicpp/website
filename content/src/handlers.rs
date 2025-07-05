@@ -148,10 +148,13 @@ pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket)
     let mut is_script="";
     file.read_to_end(&mut buffer).unwrap();
     if path.ends_with(".lua"){
-        is_script="simple.lua";
+        is_script="lua.simple";
+        res.set_header("Content-Type", "text/html");
+    } else if path.ends_with(".simple.js"){
+        is_script="deno.simple";
         res.set_header("Content-Type", "text/html");
     } else if path.ends_with(".deno.js"){
-        is_script="simple.deno";
+        is_script="deno";
         res.set_header("Content-Type", "text/html");
     } else if path.ends_with(".html"){
         res.set_header("Content-Type", "text/html");
@@ -173,20 +176,30 @@ pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket)
         res.set_header("Content-Type", "application/octet-stream");
     };
 
-    if is_script=="simple.lua"{
+    if is_script=="lua.simple"{
         let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
         let resu=match lua::run_simple(script).await{
             Ok(o)=>{o},
             Err(o)=>{o.to_string()},
         };
         res.close(resu.as_bytes()).await?;
-    } else if is_script=="simple.deno"{
+    } else if is_script=="deno.simple"{
         let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
         let resu=match javascript::run_simple(script).await{
             Ok(o)=>{o},
             Err(o)=>{o.to_string()},
         };
         res.close(resu.as_bytes()).await?;
+    } else if is_script=="deno"{
+        let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
+        match javascript::run(res, shared,script).await{
+            Ok(o)=>{
+                println!("js executed succesfully {:?}",o);
+            },
+            Err(o)=>{
+                eprintln!("js errored \n{:?}",o);
+            },
+        };
     } else {
         res.close(&buffer).await?;
     }
