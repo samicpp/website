@@ -18,7 +18,7 @@ use std::{
 use crate::{mime_map::mime_map, structs::SharedData};
 // use futures::future::BoxFuture;
 // use futures::FutureExt;
-
+static SNAPSHOT: &[u8]=include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/snapshot.bin"));
 
 #[tokio::main]
 async fn main()->std::io::Result<()> {
@@ -73,13 +73,13 @@ async fn main()->std::io::Result<()> {
         port, host, serve_dir
     );
 
-    let _deno_snapshot=Arc::new(Vec::<u8>::new());//Arc::new(javascript::create_snapshot().expect("couldnt create snapshot"));
+    let deno_snapshot=SNAPSHOT;//Arc::new(Vec::<u8>::new());//Arc::new(javascript::create_snapshot().expect("couldnt create snapshot"));
 
     // let serve_dir=Arc::new(serve_dir);
     let shared=Arc::new(SharedData{
         mime: mime_map(), 
         serve_dir, 
-        _deno_snapshot,
+        deno_snapshot,
     });
 
     let listener = {

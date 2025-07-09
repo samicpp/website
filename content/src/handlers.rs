@@ -176,6 +176,8 @@ pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket)
         res.set_header("Content-Type", "application/octet-stream");
     };
 
+    println!("script treatment of {}",&is_script);
+
     if is_script=="lua.simple"{
         let mut buffer = vec![];
         file.read_to_end(&mut buffer).unwrap();
@@ -193,8 +195,10 @@ pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket)
         let resu=val.as_bytes();
         res.close(resu).await?;
     } else if is_script=="deno"{
-        // let mut buffer = vec![];
-        // file.read_to_end(&mut buffer).unwrap();
+        let mut buffer = vec![];
+        file.read_to_end(&mut buffer).unwrap();
+        let res=javascript::run(path.to_owned(), &buffer, res, shared).await?;
+        println!("result\n{:?}",res);
         // let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
         // match javascript::run(res, shared,script).await{
         //     Ok(o)=>{

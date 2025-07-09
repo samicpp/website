@@ -1,2 +1,11 @@
 Deno.core.print("took too much pain :(\n");
-Deno.core.ops.http_close(new TextEncoder().encode("but i guess it works, maybe?"));
+//Deno.core.ops.http_close(new TextEncoder().encode("but i guess it works, maybe?"));
+
+const k=Object.keys(Deno.core.ops);
+Deno.core.print(`keys of Deno.core.ops: ${k}\n`);
+
+console.log("hello from console.log")
+console.log(`what about ${console} ${console.clear} ${console.assert}`,Object.getOwnPropertyDescriptors(console));
+console.log(`global = ${Object.keys(Object.getOwnPropertyDescriptors(globalThis))}`);
+
+Deno.core.ops.http_close("not as much fun writing this");
