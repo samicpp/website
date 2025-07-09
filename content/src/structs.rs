@@ -4,5 +4,5 @@ use std::sync::Arc;
 pub struct SharedData{
     pub mime: std::collections::HashMap<&'static str,&'static str>,
     pub serve_dir: String,
-    pub deno_snapshot: Arc<Vec<u8>>,
+    pub _deno_snapshot: Arc<Vec<u8>>,
 }

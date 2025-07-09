@@ -31,12 +31,12 @@ mlua = { version = "0.10.5", features = ["lua54", "vendored"] }
 # rusqlite = { version = "0.36.0", features = ["bundled"] }
 
 deno_core = "0.352.0"
-deno_fs = "0.120.0"
-deno_runtime = "0.218.0"
-anyhow = "1.0.98"
-ureq = "3.0.12"
-deno_ast = { version = "0.48.1", features = ["transpiling"] }
-colored = "3.0.0"
+# deno_fs = "0.120.0"
+# deno_runtime = "0.218.0"
+# anyhow = "1.0.98"
+# ureq = "3.0.12"
+# deno_ast = { version = "0.48.1", features = ["transpiling"] }
+# colored = "3.0.0"
 
 
 # [dependencies.deno_core]

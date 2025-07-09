@@ -2,7 +2,7 @@ mod mime_map;
 mod handlers;
 mod structs;
 mod javascript;
-mod module_loader;
+// mod module_loader;
 mod lua;
 
 use rust_http::{
@@ -73,13 +73,13 @@ async fn main()->std::io::Result<()> {
         port, host, serve_dir
     );
 
-    let deno_snapshot=Arc::new(Vec::<u8>::new());//Arc::new(javascript::create_snapshot().expect("couldnt create snapshot"));
+    let _deno_snapshot=Arc::new(Vec::<u8>::new());//Arc::new(javascript::create_snapshot().expect("couldnt create snapshot"));
 
     // let serve_dir=Arc::new(serve_dir);
     let shared=Arc::new(SharedData{
         mime: mime_map(), 
         serve_dir, 
-        deno_snapshot,
+        _deno_snapshot,
     });
 
     let listener = {

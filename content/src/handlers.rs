@@ -189,8 +189,8 @@ pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket)
         let mut buffer = vec![];
         file.read_to_end(&mut buffer).unwrap();
         let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
-        let (_ctx,val)=javascript::run_simple("<anonynous>", script).await?;
-        let resu=val.to_string().as_bytes();
+        let val=javascript::run_simple("<anonynous>", script).await?.to_string();
+        let resu=val.as_bytes();
         res.close(resu).await?;
     } else if is_script=="deno"{
         // let mut buffer = vec![];
