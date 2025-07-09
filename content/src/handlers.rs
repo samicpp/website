@@ -142,11 +142,11 @@ pub async fn error_handler(_shared: &SharedData,code: u16, err: std::io::Error, 
 pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket) -> std::io::Result<()> {
     let mime=&shared.mime;
     let mut file = File::open(path).unwrap();
-    let mut buffer = vec![];
+    // let mut buffer = vec![];
     let parts: Vec<&str>=path.split(".").collect::<Vec<&str>>();
     let last=parts[parts.len()-1];
     let mut is_script="";
-    file.read_to_end(&mut buffer).unwrap();
+    // file.read_to_end(&mut buffer).unwrap();
     if path.ends_with(".lua"){
         is_script="lua.simple";
         res.set_header("Content-Type", "text/html");
@@ -177,6 +177,8 @@ pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket)
     };
 
     if is_script=="lua.simple"{
+        let mut buffer = vec![];
+        file.read_to_end(&mut buffer).unwrap();
         let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
         let resu=match lua::run_simple(script).await{
             Ok(o)=>{o},
@@ -184,23 +186,27 @@ pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket)
         };
         res.close(resu.as_bytes()).await?;
     } else if is_script=="deno.simple"{
+        let mut buffer = vec![];
+        file.read_to_end(&mut buffer).unwrap();
         let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
-        let resu=match javascript::run_simple(script).await{
-            Ok(o)=>{o},
-            Err(o)=>{o.to_string()},
-        };
-        res.close(resu.as_bytes()).await?;
+        let (_ctx,val)=javascript::run_simple("<anonynous>", script).await?;
+        let resu=val.to_string().as_bytes();
+        res.close(resu).await?;
     } else if is_script=="deno"{
-        let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
-        match javascript::run(res, shared,script).await{
-            Ok(o)=>{
-                println!("js executed succesfully {:?}",o);
-            },
-            Err(o)=>{
-                eprintln!("js errored \n{:?}",o);
-            },
-        };
+        // let mut buffer = vec![];
+        // file.read_to_end(&mut buffer).unwrap();
+        // let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
+        // match javascript::run(res, shared,script).await{
+        //     Ok(o)=>{
+        //         println!("js executed succesfully {:?}",o);
+        //     },
+        //     Err(o)=>{
+        //         eprintln!("js errored \n{:?}",o);
+        //     },
+        // };
     } else {
+        let mut buffer = vec![];
+        file.read_to_end(&mut buffer).unwrap();
         res.close(&buffer).await?;
     }
     Ok(())
