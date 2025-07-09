@@ -60,6 +60,14 @@ fn http_set_header(state: &mut OpState, #[string] name: String, #[string] value:
 //     value.as_bytes()
 // }
 
+static _START_SCRIPT: &'static str=r#"
+// const http=new class Http{
+//   close(str){ return Deno.core.ops.http_close(str); }
+//   write(str){ return Deno.core.ops.http_close(str); }
+//   setHeader(name,value){ return Deno.core.ops.http_set_header(name,value); }
+// }
+"#;
+
 fn main() {
     extension!(
       runjs_extension,

@@ -19,3 +19,10 @@ export function callRust(stringValue) {
 //   warn(a0){ return this.log(a0) }
 //   error(a0){ return this.log(a0) }
 // }
+
+export const http=new class Http{
+  close(str){ return Deno.core.ops.http_close(str); }
+  write(str){ return Deno.core.ops.http_close(str); }
+  setHeader(name,value){ return Deno.core.ops.http_set_header(name,value); }
+}
+
