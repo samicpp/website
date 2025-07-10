@@ -57,7 +57,7 @@ fn http_set_header(state: &mut OpState, #[string] name: String, #[string] value:
     // let mut state=state.borrow_mut();
     let conn=state.borrow_mut::<Rc<RefCell<Http1Socket>>>();
     let mut conn=conn.borrow_mut();
-    conn.set_header(&name,&value);
+    let _=conn.set_header(&name,&value);
     Ok(())
 }
 
