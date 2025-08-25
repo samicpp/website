@@ -1,36 +1,31 @@
-use crate::{javascript, lua, structs::SharedData, Http1Socket};
-
-// use std::convert::Infallible;
-use std::{
-    // fs::{self, File}, 
-    // io::Read, 
-    path::{Component, Path, PathBuf},
-};
+use crate::{structs::SharedData, /*Http1Socket*/};
+use crate::custom;
 
 use tokio::{
-    fs::{ self, File }, io::AsyncReadExt,
+    fs::{self, File}, io::AsyncReadExt,
+};
+use std::{
+    // io::Read, 
+    path::{Component, Path, PathBuf}
 };
 
-// use crate::mime_map::mime_map;
+use rust_http::common::{HttpClient, HttpResult, HttpSocket, /*HttpConstructor, Stream*/};
 
-// use regex::Regex;
-use rust_http::traits::HttpSocket;
-
-pub async fn handler(shared: &SharedData, mut req: Http1Socket) -> std::io::Result<()> {
+pub async fn handler<S:HttpSocket>(shared: &SharedData, mut req: S) -> HttpResult<()> {
     println!("Serving connection");
 
     let serve_dir=&shared.serve_dir;
 
-    if let Err(err)=req.update_client().await{
-        eprintln!("error at Http1Socket::update_client() \n{:?}",err);
+    let client=match req.read_client().await{
+        Err(err)=>{
+            eprintln!("error at Http1Socket::update_client() \n{:?}",err);
+            HttpClient::empty()
+        },
+        Ok(c)=>c.clone(),
     };
 
-    // let path_cleanup1: Regex = Regex::new(r"/+").unwrap();
-    // let path_cleanup2: Regex = Regex::new(r"/$").unwrap();
-    // let path_cleanup3: Regex = Regex::new(r"\?*.").unwrap();
-
-    let full_path: String = { 
-        let full_path: String = req.client.path.clone();
+    let clean_path: String = { 
+        let full_path: String = client.path.clone();
         let full_path = full_path.replace("\\","/");
         let full_path = full_path.split(|c| c == '?' || c == '#').next().unwrap_or("");
         
@@ -47,96 +42,70 @@ pub async fn handler(shared: &SharedData, mut req: Http1Socket) -> std::io::Resu
         let full_path = full_path.replace("\\","/");
 
 
-        // let full_path   =full_path.replace("\\", "/");
-        // let full_path = path_cleanup1.replace_all(&full_path, "/");
-        // let full_path = if full_path.len() > 1 {
-        //     path_cleanup2.replace(&full_path, "")
-        // } else {
-        //     full_path
-        // };
-        // let full_path = if full_path.len() > 1 { path_cleanup3.replace_all(&full_path, "") } else { full_path };
-
-        serve_dir.to_owned() + &full_path.to_string()
+        full_path.to_string()
     };
+    let full_path=serve_dir.to_owned() + &clean_path.to_string();
     println!("Full path: {}", full_path);
 
-    
-    
-    let info_res = fs::metadata(&full_path).await;
-    match info_res{
-        Ok(info) => {
-            if info.is_file() {
-                file_handler(shared, &full_path,req).await
-                // let mut file = File::open(&full_path).unwrap();
-                // let mut buffer = vec![0; info.len() as usize];
-                // file.read_exact(&mut buffer).unwrap();
-                // Ok(Response::new(Full::new(Bytes::from(buffer))))
-            } else if info.is_dir(){
-                dir_handler(shared, req, &full_path).await
-                // let dir: fs::ReadDir = fs::read_dir(&full_path).unwrap();
-                // let mut file: String = "".to_string();
-                //
-                // for entry in dir{
-                //     let entry = entry.unwrap();
-                //     let file_name = entry.file_name().into_string().unwrap();
-                //     if file_name.starts_with("index.") || file_name == "index" {
-                //         file = full_path.to_owned() + "/" + &file_name;
-                //         break;
-                //     }
-                // }
-                //
-                // if file==""{
-                //     error_handler(409, std::io::Error::new(std::io::ErrorKind::IsADirectory,"Cannot find index file in directory"), req).await
-                // } else {
-                //     file_handler(&file).await
-                // }
-            } else {
-                error_handler(shared, 409, std::io::Error::new(std::io::ErrorKind::Unsupported, "File is unusable"), req).await
-            }
-        },
-        Err(err) => {
-            if err.kind() == std::io::ErrorKind::NotFound {
-                error_handler(shared,404, err, req).await
-            } else {
-                error_handler(shared,500, err, req).await
-            }
-        },
+    if clean_path.starts_with("/api"){
+        custom::api_hand(shared, &full_path,req).await
+    } else {
+        let info_res = fs::metadata(&full_path).await;
+        match info_res{
+            Ok(info) => {
+                if info.is_file() {
+                    file_handler(shared, &full_path,req).await
+                } else if info.is_dir(){
+                    dir_handler(shared, req, &full_path).await
+                } else {
+                    error_handler(shared, 409, std::io::Error::new(std::io::ErrorKind::Unsupported, "File is unusable"), req).await
+                }
+            },
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    error_handler(shared,404, err, req).await
+                } else {
+                    error_handler(shared,500, err, req).await
+                }
+            },
+        }
     }
-
-    // Ok(Response::new(Full::new(Bytes::from("Hello, World!"))))
 }
 
-pub async fn error_handler(_shared: &SharedData,code: u16, err: std::io::Error, mut req: Http1Socket) -> std::io::Result<()>{
+pub async fn error_handler<S:HttpSocket>(_shared: &SharedData,code: u16, err: std::io::Error, mut req: S) -> HttpResult<()>{
     eprintln!("Error of status {} occoured\n\x1b[31m{}\x1b[0m",code,err);
     match code {
         404 => {
-            println!("404 Not Found: {}", &req.client.path);
-            req.status=404;
-            req.status_msg="404 Not Found".to_owned();
+            println!("404 Not Found: {}", &req.get_client().await?.path);
+            req.set_status(404, "Not found".to_owned())?;
+            // req.status_msg="404 Not Found".to_owned();
             let _=req.set_header("Content-Type", "text/plain");
             req.close(b"not found").await?;
             Ok(())
         },
         409 => {
-            println!("409 Conflict: {}", &req.client.path);
-            req.status=409;
-            req.status_msg="409 Conflict".to_owned();
+            println!("409 Conflict: {}", &req.get_client().await?.path);
+            req.set_status(409, "Conflict".to_owned())?;
+            // req.status=409;
+            // req.status_msg="409 Conflict".to_owned();
             let _=req.set_header("Content-Type", "text/plain");
             req.close(b"conflict").await?;
             Ok(())
         },
         500 => {
-            println!("500 Internal Server Error: {}", &req.client.path);
-            req.status=500;
-            req.status_msg="500 Internal Server Error".to_owned();
+            println!("500 Internal Server Error: {}", &req.get_client().await?.path);
+            req.set_status(500, "Internal Server Error".to_owned())?;
+            // req.status=500;
+            // req.status_msg="500 Internal Server Error".to_owned();
             let _=req.set_header("Content-Type", "text/plain");
             req.close(b"internal server error").await?;
             Ok(())
         },
         _ => {
-            println!("{}: {}", code, &req.client.path);
-            req.status=code;
-            req.status_msg=format!("{}: {}", code, err);
+            println!("{}: {}", code, &req.get_client().await?.path);
+            req.set_status(code, format!("{}: {}", code, err))?;
+            // req.status=code;
+            // req.status_msg=format!("{}: {}", code, err);
             let _=req.set_header("Content-Type", "text/plain");
             req.close(b"internal server error").await?;
             Ok(())
@@ -145,85 +114,42 @@ pub async fn error_handler(_shared: &SharedData,code: u16, err: std::io::Error, 
     }
 }
 
-pub async fn file_handler(shared: &SharedData, path: &str, mut res: Http1Socket) -> std::io::Result<()> {
+pub async fn file_handler<S:HttpSocket>(shared: &SharedData, path: &str, mut res: S) -> HttpResult<()> {
     let mime=&shared.mime;
-    let mut file = File::open(path).await?;
+    let mut file = File::open(path).await.unwrap();
     // let mut buffer = vec![];
     let parts: Vec<&str>=path.split(".").collect::<Vec<&str>>();
     let last=parts[parts.len()-1];
-    let mut is_script="";
-    // file.read_to_end(&mut buffer).unwrap();
-    if path.ends_with(".lua"){
-        is_script="lua.simple";
-        let _=res.set_header("Content-Type", "text/html");
-    } else if path.ends_with(".simple.js"){
-        is_script="deno.simple";
-        let _=res.set_header("Content-Type", "text/html");
-    } else if path.ends_with(".deno.js"){
-        is_script="deno";
-        let _=res.set_header("Content-Type", "text/html");
-    } else if path.ends_with(".html"){
-        let _=res.set_header("Content-Type", "text/html");
+
+    /*if path.ends_with(".html"){
+        res.set_header("Content-Type", "text/html");
     } else if path.ends_with(".css") {
-        let _=res.set_header("Content-Type", "text/css");
+        res.set_header("Content-Type", "text/css");
     } else if path.ends_with(".js") {
-        let _=res.set_header("Content-Type", "application/javascript");
+        res.set_header("Content-Type", "application/javascript");
     } else if path.ends_with(".json") {
-        let _=res.set_header("Content-Type", "application/json");
+        res.set_header("Content-Type", "application/json");
     } else if path.ends_with(".png") {
-        let _=res.set_header("Content-Type", "image/png");
+        res.set_header("Content-Type", "image/png");
     } else if path.ends_with(".jpg") || path.ends_with(".jpeg") {
-        let _=res.set_header("Content-Type", "image/jpeg");
+        res.set_header("Content-Type", "image/jpeg");
     } else if path.ends_with(".gif") {
-        let _=res.set_header("Content-Type", "image/gif");
-    } else if let Some(ct)=mime.get(last) {
+        res.set_header("Content-Type", "image/gif");
+    } else*/ if let Some(ct)=mime.get(last) {
         let _=res.set_header("Content-Type", ct);
     } else {
         let _=res.set_header("Content-Type", "application/octet-stream");
     };
 
-    println!("script treatment of {}",&is_script);
-
-    if is_script=="lua.simple"{
-        let mut buffer = vec![];
-        file.read_to_end(&mut buffer).await?;
-        let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
-        let resu=match lua::run_simple(script).await{
-            Ok(o)=>{o},
-            Err(o)=>{o.to_string()},
-        };
-        res.close(resu.as_bytes()).await?;
-    } else if is_script=="deno.simple"{
-        let mut buffer = vec![];
-        file.read_to_end(&mut buffer).await?;
-        let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
-        let val=javascript::run_simple("<anonynous>", script).await?.to_string();
-        let resu=val.as_bytes();
-        res.close(resu).await?;
-    } else if is_script=="deno"{
-        let mut buffer = vec![];
-        file.read_to_end(&mut buffer).await?;
-        let res=javascript::run(path.to_owned(), &buffer, res, shared).await?;
-        println!("result\n{:?}",res);
-        // let script=if let Ok(s)=str::from_utf8(&buffer){s}else{""};
-        // match javascript::run(res, shared,script).await{
-        //     Ok(o)=>{
-        //         println!("js executed succesfully {:?}",o);
-        //     },
-        //     Err(o)=>{
-        //         eprintln!("js errored \n{:?}",o);
-        //     },
-        // };
-    } else {
-        let mut buffer = vec![];
-        file.read_to_end(&mut buffer).await?;
-        res.close(&buffer).await?;
-    }
+    let mut buffer = vec![];
+    file.read_to_end(&mut buffer).await.unwrap();
+    res.close(&buffer).await?;
+    
     Ok(())
 }
 
-pub async fn dir_handler(shared: &SharedData, res: Http1Socket,path: &str) -> std::io::Result<()> {
-    let mut dir: fs::ReadDir = fs::read_dir(&path).await?;
+pub async fn dir_handler<S:HttpSocket>(shared: &SharedData, res: S,path: &str) -> HttpResult<()> {
+    let mut dir = fs::read_dir(&path).await?;
     let mut file: String = "".to_string();
 
     println!("Path is dir {}", path);
@@ -240,8 +166,9 @@ pub async fn dir_handler(shared: &SharedData, res: Http1Socket,path: &str) -> st
 
         println!("Directory entry {}\n{:?}",file_name,entry);
 
-        if file_name.starts_with("index.") || file_name == "index" || file_name.starts_with(last_dir) {
+        if file_name.starts_with("index.") || file_name == "index" || (!last_dir.is_empty() && file_name.starts_with(last_dir)) {
             // file = path.to_owned() + "/" + &file_name;
+            // println!("last dir = {:?}\npath = {path:?}",last_dir);
             file = entry.path().to_string_lossy().to_string();
             break;
         }
@@ -249,7 +176,7 @@ pub async fn dir_handler(shared: &SharedData, res: Http1Socket,path: &str) -> st
 
     println!("File found {}", file);
 
-    if fs::metadata(&file).await?.is_file(){
+    if fs::metadata(&file).await.unwrap().is_file(){
         file_handler(shared,&file,res).await
     } else {
         error_handler(shared,409, std::io::Error::new(std::io::ErrorKind::IsADirectory,"Cannot find index file in directory"), res).await
